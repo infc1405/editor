@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title data-fa="ویرایشگر متن" data-en="Text Editor">ویرایشگر متن</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bar:#1f3a5f; --bar-2:#2b4c7a; --ink:#1b1f24; --desk:#d9dde3; --paper:#fff;
+  --accent:#f2b84b; --line:#c3cad4;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --desk:#23272d; }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{font-family:Vazirmatn,Tahoma,sans-serif;background:var(--desk);color:var(--ink);display:flex;flex-direction:column}
+header{background:var(--bar);color:#fff;padding:6px 8px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;z-index:5}
+.row{display:flex;gap:6px;overflow-x:auto;align-items:center;scrollbar-width:none;padding-bottom:1px}
+.row::-webkit-scrollbar{display:none}
+.row>*{flex:0 0 auto}
+button,select{font-family:inherit;font-size:14px;height:38px;border-radius:8px;border:1px solid var(--bar-2);background:var(--bar-2);color:#fff;padding:0 10px;min-width:38px}
+button:active{background:#3a5f94}
+button[aria-pressed="true"],button.on{background:var(--accent);color:#1b1f24;border-color:var(--accent)}
+select{padding:0 6px;max-width:150px}
+select option{color:#000}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sep{width:1px;height:24px;background:#ffffff40}
+svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;display:block;margin:auto}
+main{flex:1;overflow:auto;padding:12px 0 40px}
+#sheetBox{margin:0 auto;width:max-content;position:relative;background:var(--paper);box-shadow:0 2px 10px rgba(0,0,0,.25);overflow:hidden}
+#bgLayer{position:absolute;inset:0;pointer-events:none;background-size:cover;background-position:center;background-repeat:no-repeat;z-index:0}
+.colorBtn{display:flex;align-items:center;gap:6px;height:38px;border-radius:8px;border:1px solid var(--bar-2);background:var(--bar-2);color:#fff;padding:0 8px;font-size:14px}
+.colorBtn input{width:26px;height:26px;border:0;padding:0;background:none;cursor:pointer}
+.colorBtn input::-webkit-color-swatch-wrapper{padding:0}
+.colorBtn input::-webkit-color-swatch{border:2px solid #fff;border-radius:6px}
+#paper{position:relative;z-index:1;background:transparent;color:#111;outline:none;
+  padding:20mm;overflow-wrap:anywhere;font-family:Vazirmatn,Tahoma,sans-serif;font-size:14pt;line-height:1.5;direction:rtl;text-align:right}
+#paper p{margin:0}
+.status{font-size:12px;opacity:.85;padding:0 4px}
+@media print{
+  header,.status{display:none}
+  body,main{background:#fff;padding:0;overflow:visible;display:block}
+  #sheetBox{zoom:1 !important}
+  #sheetBox{box-shadow:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+<style id="pageStyle"></style>
+</head>
+<body>
+<header>
+  <div class="row" aria-label="تنظیمات صفحه">
+    <button id="langBtn" type="button">English</button>
+    <select id="paperSize" aria-label="اندازه کاغذ">
+      <option value="A4" data-fa="کاغذ A4" data-en="Paper A4">کاغذ A4</option>
+      <option value="A5" data-fa="کاغذ A5" data-en="Paper A5">کاغذ A5</option>
+    </select>
+    <select id="orient" aria-label="جهت برگه">
+      <option value="portrait" data-fa="عمودی" data-en="Portrait">عمودی</option>
+      <option value="landscape" data-fa="افقی" data-en="Landscape">افقی</option>
+    </select>
+    <select id="lineSp" aria-label="فاصله سطرها">
+      <option value="1" data-fa="فاصله سطر ۱" data-en="Line spacing 1">فاصله سطر ۱</option>
+      <option value="1.15" data-fa="۱٫۱۵" data-en="1.15">۱٫۱۵</option>
+      <option value="1.5" selected data-fa="۱٫۵" data-en="1.5">۱٫۵</option>
+      <option value="2" data-fa="۲" data-en="2">۲</option>
+      <option value="2.5" data-fa="۲٫۵" data-en="2.5">۲٫۵</option>
+      <option value="3" data-fa="۳" data-en="3">۳</option>
+    </select>
+    <button id="dirBtn" title="جهت متن">RTL ⇄ LTR</button>
+    <button id="printBtn" data-fa="چاپ / PDF" data-en="Print / PDF">چاپ / PDF</button>
+    <button id="clearBtn" data-fa="جدید" data-en="New">جدید</button>
+    <span class="sep"></span>
+    <button id="bgBtn" data-fa="تصویر پس‌زمینه" data-en="Background image">تصویر پس‌زمینه</button>
+    <select id="bgFade" aria-label="Fade">
+      <option value="0" data-fa="تصویر کامل" data-en="Full image">تصویر کامل</option>
+      <option value="25" selected data-fa="محو ۲۵٪" data-en="Fade 25%">محو ۲۵٪</option>
+      <option value="50" data-fa="محو ۵۰٪" data-en="Fade 50%">محو ۵۰٪</option>
+      <option value="75" data-fa="محو ۷۵٪" data-en="Fade 75%">محو ۷۵٪</option>
+    </select>
+    <button id="bgClear" data-fa="حذف تصویر" data-en="Remove image">حذف تصویر</button>
+    <input type="file" id="bgFile" accept="image/*" hidden>
+  </div>
+  <div class="row" aria-label="قالب‌بندی متن">
+    <select id="fontName" aria-label="فونت">
+      <option value="Vazirmatn" data-fa="وزیرمتن" data-en="Vazirmatn">وزیرمتن</option>
+      <option value="Tahoma">Tahoma</option>
+      <option value="Noto Naskh Arabic" data-fa="نسخ" data-en="Naskh">نسخ</option>
+      <option value="Times New Roman">Times New Roman</option>
+      <option value="Arial">Arial</option>
+      <option value="Georgia">Georgia</option>
+      <option value="Courier New">Courier New</option>
+    </select>
+    <button id="szDown" aria-label="کوچک‌تر">A−</button>
+    <select id="fontSize" aria-label="اندازه فونت"></select>
+    <button id="szUp" aria-label="بزرگ‌تر">A+</button>
+    <span class="sep"></span>
+    <button data-cmd="bold"><b>B</b></button>
+    <button data-cmd="italic"><i>I</i></button>
+    <button data-cmd="underline"><u>U</u></button>
+    <label class="colorBtn"><span data-fa="رنگ متن" data-en="Text color">رنگ متن</span><input type="color" id="textColor" value="#111111"></label>
+    <span class="sep"></span>
+    <button data-align="right" aria-label="راست‌چین"><svg viewBox="0 0 24 24"><path d="M3 6h18M9 12h12M5 18h16"/></svg></button>
+    <button data-align="center" aria-label="وسط‌چین"><svg viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M5 18h14"/></svg></button>
+    <button data-align="left" aria-label="چپ‌چین"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h12M3 18h16"/></svg></button>
+    <button data-align="justify" aria-label="توزیع"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <span class="sep"></span>
+    <button data-cmd="undo" aria-label="بازگردانی">↶</button>
+    <button data-cmd="redo" aria-label="تکرار">↷</button>
+  </div>
+  <div class="status" id="status"></div>
+</header>
+
+<main id="desk">
+  <div id="sheetBox">
+    <div id="bgLayer"></div>
+    <div id="paper" contenteditable="true" spellcheck="false"><p><br></p></div>
+  </div>
+</main>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const paper = $('#paper'), box = $('#sheetBox'), desk = $('#desk');
+  const PAPERS = { A4:[210,297], A5:[148,210] };
+  const PX = 96/25.4;
+  const sizes = [8,9,10,11,12,14,16,18,20,22,24,28,32,36,48,60,72];
+  const fs = $('#fontSize');
+  sizes.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;if(n===14)o.selected=true;fs.appendChild(o)});
+
+  document.execCommand('defaultParagraphSeparator', false, 'p');
+
+  /* ---------- selection keeper (selects/buttons steal focus on mobile) ---------- */
+  let saved = null;
+  document.addEventListener('selectionchange', ()=>{
+    const s = getSelection();
+    if (s.rangeCount && paper.contains(s.anchorNode)) saved = s.getRangeAt(0).cloneRange();
+    reflectState();
+  });
+  function restore(){
+    paper.focus({preventScroll:true});
+    if (saved){ const s=getSelection(); s.removeAllRanges(); s.addRange(saved); }
+  }
+  function hasSelection(){ return saved && !saved.collapsed; }
+
+  /* ---------- page: size, orientation, scale ---------- */
+  function applyPage(){
+    const [w,h] = PAPERS[$('#paperSize').value];
+    const land = $('#orient').value === 'landscape';
+    const W = land ? h : w, H = land ? w : h;
+    paper.style.width = W+'mm';
+    paper.style.minHeight = H+'mm';
+    $('#pageStyle').textContent = `@page{size:${$('#paperSize').value} ${land?'landscape':'portrait'};margin:0}`;
+    fit(W);
+    status();
+  }
+  function fit(Wmm){
+    const avail = desk.clientWidth - 16;
+    const z = Math.min(1, avail / (Wmm*PX));
+    box.style.zoom = z;
+    box.dataset.zoom = z;
+  }
+  window.addEventListener('resize', applyPage);
+  $('#paperSize').onchange = $('#orient').onchange = ()=>{applyPage();save()};
+
+  /* ---------- blocks (for line spacing / alignment) ---------- */
+  function blocksInRange(){
+    const all = [...paper.children];
+    if (!hasSelection()) return all;
+    return all.filter(b => saved.intersectsNode(b));
+  }
+  function ensureBlocks(){
+    if (!paper.children.length) paper.innerHTML = '<p><br></p>';
+  }
+
+  /* ---------- line spacing ---------- */
+  $('#lineSp').onchange = e=>{
+    ensureBlocks();
+    const v = e.target.value;
+    if (hasSelection()) blocksInRange().forEach(b=>b.style.lineHeight=v);
+    else { paper.style.lineHeight=v; [...paper.children].forEach(b=>b.style.lineHeight=v); }
+    save();
+  };
+
+  /* ---------- alignment ---------- */
+  document.querySelectorAll('[data-align]').forEach(btn=>{
+    btn.onmousedown = e=>e.preventDefault();
+    btn.onclick = ()=>{
+      restore(); ensureBlocks();
+      const a = btn.dataset.align;
+      const targets = blocksInRange();
+      if (saved && saved.collapsed){
+        // only the paragraph with the cursor
+        let n = saved.startContainer; while(n && n.parentNode!==paper) n=n.parentNode;
+        if (n && n.nodeType===1) n.style.textAlign=a;
+      } else targets.forEach(b=>b.style.textAlign=a);
+      save(); reflectState();
+    };
+  });
+
+  /* ---------- text direction ---------- */
+  $('#dirBtn').onclick = ()=>{
+    restore(); ensureBlocks();
+    const cur = paper.style.direction || 'rtl';
+    const next = cur==='rtl'?'ltr':'rtl';
+    const apply = b=>{b.style.direction=next; b.style.textAlign = next==='rtl'?'right':'left';};
+    if (hasSelection()) blocksInRange().forEach(apply);
+    else { paper.style.direction=next; [...paper.children].forEach(apply); }
+    save();
+  };
+
+  /* ---------- font family ---------- */
+  $('#fontName').onchange = e=>{
+    restore();
+    if (hasSelection()) document.execCommand('fontName', false, e.target.value);
+    else paper.style.fontFamily = `"${e.target.value}", Tahoma, sans-serif`;
+    save();
+  };
+
+  /* ---------- font size (pt) ---------- */
+  function setSize(pt){
+    restore();
+    if (!hasSelection()){
+      paper.style.fontSize = pt+'pt';
+      paper.querySelectorAll('span[style*="font-size"]').forEach(s=>s.style.fontSize='');
+    } else {
+      document.execCommand('fontSize', false, '7');
+      paper.querySelectorAll('font[size="7"]').forEach(f=>{
+        const s = document.createElement('span');
+        s.style.fontSize = pt+'pt';
+        while(f.firstChild) s.appendChild(f.firstChild);
+        f.replaceWith(s);
+      });
+    }
+    fs.value = pt; save();
+  }
+  fs.onchange = e=>setSize(+e.target.value);
+  function step(d){
+    const i = sizes.indexOf(+fs.value);
+    const n = sizes[Math.max(0, Math.min(sizes.length-1, (i<0?5:i)+d))];
+    setSize(n);
+  }
+  $('#szUp').onmousedown=$('#szDown').onmousedown=e=>e.preventDefault();
+  $('#szUp').onclick = ()=>step(1);
+  $('#szDown').onclick = ()=>step(-1);
+
+  /* ---------- text color ---------- */
+  $('#textColor').addEventListener('input', e=>{
+    const v = e.target.value;
+    restore();
+    if (hasSelection()){
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand('foreColor', false, v);
+      document.execCommand('styleWithCSS', false, false);
+    } else {
+      paper.style.color = v;
+      paper.querySelectorAll('font[color]').forEach(f=>f.removeAttribute('color'));
+      paper.querySelectorAll('[style*="color"]').forEach(el=>{ el.style.color=''; });
+    }
+    save();
+  });
+
+  /* ---------- background image ---------- */
+  const BGKEY = 'persian-word-bg-v1';
+  const bgLayer = $('#bgLayer');
+  let bgData = null;
+  function paintBg(){
+    if (!bgData){ bgLayer.style.backgroundImage=''; return; }
+    bgLayer.style.backgroundImage = `url("${bgData}")`;
+    bgLayer.style.opacity = 1 - (+$('#bgFade').value)/100;
+  }
+  function readImage(file){
+    return new Promise(res=>{
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = ()=>{
+        const r = Math.min(1, 1600/Math.max(img.width,img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width*r); c.height = Math.round(img.height*r);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        URL.revokeObjectURL(url);
+        res(c.toDataURL('image/jpeg',0.82));
+      };
+      img.onerror = ()=>res(null);
+      img.src = url;
+    });
+  }
+  $('#bgBtn').onclick = ()=>$('#bgFile').click();
+  $('#bgFile').onchange = async e=>{
+    const f = e.target.files[0]; e.target.value='';
+    if (!f) return;
+    const d = await readImage(f);
+    if (!d){ alert(lang==='en' ? 'Could not open this image.' : 'این تصویر باز نشد.'); return; }
+    bgData = d; paintBg();
+    try{ localStorage.setItem(BGKEY, bgData); }catch(_){}
+  };
+  $('#bgFade').onchange = ()=>{ paintBg(); save(); };
+  function clearBg(){ bgData=null; paintBg(); try{ localStorage.removeItem(BGKEY); }catch(_){} }
+  $('#bgClear').onclick = clearBg;
+  function restoreBg(){
+    try{ bgData = localStorage.getItem(BGKEY) || null; }catch(_){}
+    paintBg();
+  }
+
+  /* ---------- bold / italic / underline / undo / redo ---------- */
+  document.querySelectorAll('[data-cmd]').forEach(btn=>{
+    btn.onmousedown = e=>e.preventDefault();
+    btn.onclick = ()=>{ restore(); document.execCommand(btn.dataset.cmd); save(); reflectState(); };
+  });
+
+  /* ---------- reflect state of toolbar ---------- */
+  function reflectState(){
+    ['bold','italic','underline'].forEach(c=>{
+      const b = document.querySelector(`[data-cmd="${c}"]`);
+      try{ b.setAttribute('aria-pressed', document.queryCommandState(c)); }catch(_){}
+    });
+    if (saved){
+      let n = saved.startContainer; if(n.nodeType===3) n=n.parentNode;
+      if (n && paper.contains(n)){
+        const cs = getComputedStyle(n);
+        const px = parseFloat(cs.fontSize);
+        const pt = Math.round(px*72/96);
+        if (sizes.includes(pt)) fs.value = pt;
+        let blk = n; while(blk && blk.parentNode!==paper) blk=blk.parentNode;
+        const al = blk ? getComputedStyle(blk).textAlign : 'right';
+        const map = {start:getComputedStyle(paper).direction==='rtl'?'right':'left', end:getComputedStyle(paper).direction==='rtl'?'left':'right'};
+        const cur = map[al] || al;
+        document.querySelectorAll('[data-align]').forEach(b=>b.classList.toggle('on', b.dataset.align===cur));
+      }
+    }
+  }
+
+  /* ---------- save / load / new / print ---------- */
+  const KEY = 'persian-word-doc-v1';
+  let t;
+  function save(){
+    clearTimeout(t);
+    t = setTimeout(()=>{
+      try{
+        localStorage.setItem(KEY, JSON.stringify({
+          html: paper.innerHTML, style: paper.getAttribute('style')||'',
+          size: $('#paperSize').value, orient: $('#orient').value, line: $('#lineSp').value, fade: $('#bgFade').value
+        }));
+      }catch(_){}
+      status();
+    }, 400);
+  }
+  function load(){
+    try{
+      const d = JSON.parse(localStorage.getItem(KEY)||'null');
+      if (!d) return;
+      paper.innerHTML = d.html || '<p><br></p>';
+      paper.setAttribute('style', d.style||'');
+      $('#paperSize').value = d.size||'A4';
+      $('#orient').value = d.orient||'portrait';
+      $('#lineSp').value = d.line||'1.5';
+      if (d.fade!=null) $('#bgFade').value = d.fade;
+    }catch(_){}
+  }
+  function status(){
+    const words = paper.innerText.trim().split(/\s+/).filter(Boolean).length;
+    const [w,h] = PAPERS[$('#paperSize').value];
+    const land = $('#orient').value==='landscape';
+    const pages = Math.max(1, Math.ceil(paper.scrollHeight / ((land?w:h)*PX)));
+    const en = lang==='en', loc = en?'en':'fa';
+    $('#status').textContent = en
+      ? `${$('#paperSize').value} · ${land?'Landscape':'Portrait'} · ${words.toLocaleString(loc)} words · about ${pages.toLocaleString(loc)} page(s)`
+      : `${$('#paperSize').value} · ${land?'افقی':'عمودی'} · ${words.toLocaleString(loc)} کلمه · حدود ${pages.toLocaleString(loc)} صفحه`;
+  }
+  paper.addEventListener('input', ()=>{ ensureBlocks(); save(); });
+  $('#printBtn').onclick = ()=>window.print();
+  $('#clearBtn').onclick = ()=>{
+    if (!confirm(lang==='en' ? 'Clear the current document and start a new one?' : 'سند فعلی پاک شود و سند جدید شروع شود؟')) return;
+    paper.innerHTML='<p><br></p>'; paper.removeAttribute('style'); clearBg(); saved=null; save(); paper.focus();
+  };
+
+  /* ---------- interface language (fa / en) ---------- */
+  let lang = 'fa';
+  try{ lang = localStorage.getItem('persian-word-lang') || 'fa'; }catch(_){}
+  function setLang(l, fromUser){
+    lang = l;
+    const en = l==='en';
+    document.documentElement.lang = l;
+    document.documentElement.dir = en ? 'ltr' : 'rtl';
+    document.querySelectorAll('[data-fa]').forEach(el=>{
+      el.textContent = en ? el.dataset.en : el.dataset.fa;
+    });
+    document.title = en ? 'Text Editor' : 'ویرایشگر متن';
+    $('#langBtn').textContent = en ? 'فارسی' : 'English';
+    // an empty document follows the interface language
+    if (fromUser && !paper.innerText.trim()){
+      paper.style.direction = en ? 'ltr' : 'rtl';
+      paper.style.textAlign = en ? 'left' : 'right';
+      [...paper.children].forEach(b=>{b.style.direction='';b.style.textAlign='';});
+    }
+    try{ localStorage.setItem('persian-word-lang', l); }catch(_){}
+    status();
+  }
+  $('#langBtn').onclick = ()=>{ setLang(lang==='en'?'fa':'en', true); save(); };
+
+  load(); applyPage(); setLang(lang, false); restoreBg();
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
